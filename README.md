@@ -67,6 +67,7 @@ npm run web         # dApp en :5173
 
 Flujo de la demo ante los jueces: conectar MetaMask (la dApp añade Monad Testnet sola) → pegar un razonamiento → el oráculo lo puntúa, genera el CID y acuña $COGN → aparece el recibo con enlace al explorer, sube el contador de minería y el balance del usuario. Abajo, la tabla de vesting leída on-chain muestra que equipo e inversores siguen a 0% hasta su cliff.
 
+- `oracle/app/main.py` — oráculo de producción (FastAPI) con cooldown por wallet y presupuesto diario de emisión; es el que se despliega público.
 - `oracle/server.js` — servicio backend con la wallet del oráculo. `scoreReasoning()` es el stub de Vertex AI (profundidad, pasos, conclusión) y `fakeCid()` el stand-in del pinning a IPFS: son los dos puntos de integración reales.
 - `web/` — dApp React + ethers v6, sólo lectura salvo conectar wallet y reclamar vesting.
 
@@ -78,4 +79,4 @@ Flujo de la demo ante los jueces: conectar MetaMask (la dApp añade Monad Testne
 4. **Vesting irrevocable.** Equipo (cliff 12m, lineal 48m) e inversores (cliff 6m, lineal 24m) no pueden desbloquear antes de tiempo: no hay función de rescate sobre tokens ya comprometidos.
 5. **Ownable2Step + ERC20Permit.** Evita perder el control por transferir ownership a una dirección errónea, y permite aprobaciones sin gas para la UX del estudiante.
 
-Ver [TOKENOMICS.md](./TOKENOMICS.md) para la distribución y el calendario completos.
+Ver [TOKENOMICS.md](./TOKENOMICS.md) para la distribución y el calendario completos, y [DOCUMENTACION.md](./DOCUMENTACION.md) para la arquitectura, el respaldo del token, los controles de seguridad y el runbook de la demo.

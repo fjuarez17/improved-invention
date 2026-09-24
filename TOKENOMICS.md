@@ -20,6 +20,15 @@ Float en circulación el día del TGE: **110M (11%)** = airdrop completo (100M) 
 - **Oferta:** sólo crece cuando se produce conocimiento nuevo y auditable (`mintCognitiveReward` con CID de IPFS). Emisión atada a producción, no a tiempo.
 - **Sumideros:** pagos de API, staking de validadores humanos de datos y quema opcional (`burn`) — quemar no reabre cupo de minería, así que el suministro es monótonamente decreciente respecto al cap.
 
+## Respaldo del token
+
+Cuatro capas verificables, detalladas en [DOCUMENTACION.md](./DOCUMENTACION.md#3-respaldo-del-token-qué-sostiene-a-cogn):
+
+1. **Producción de datos:** cada token minado corresponde a una traza de razonamiento evaluada, con su CID escrito en el evento on-chain. Sin razonamiento no hay emisión.
+2. **Demanda de uso:** compras del corpus, pagos de API y staking de validadores humanos, todo denominado en $COGN.
+3. **Escasez verificable:** hard cap de 1B a nivel de bytecode y cubeta de minería de 400M que no se reabre al quemar.
+4. **Tesorería y liquidez:** 200M destinados a liquidez en DEXs de Monad, validadores y grants, liberados con cliff y vesting lineal.
+
 ## Curva de emisión sugerida (minería, 400M / 10 años)
 
 Emisión con halving anual suave: el presupuesto del año *n* es `400M × 0.5^(n/3.5)` normalizado a 10 años, con un tope por época que el backend hace cumplir y `maxRewardPerMint` como límite duro on-chain. Así los primeros usuarios se llevan más, sin inflacionar el precio cuando llegue liquidez real.
