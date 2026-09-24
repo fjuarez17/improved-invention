@@ -48,6 +48,18 @@ Verificar código fuente (Monad usa Sourcify, no Etherscan):
 npx hardhat verify --network monadTestnet <TOKEN> <OWNER> <ALLOCATION_RECEIVER>
 ```
 
+## Demo (dApp + servicio de oráculo)
+
+```bash
+npm run oracle      # servicio del oráculo en :8787 (firma con ORACLE_PRIVATE_KEY)
+npm run web         # dApp en :5173
+```
+
+Flujo de la demo ante los jueces: conectar MetaMask (la dApp añade Monad Testnet sola) → pegar un razonamiento → el oráculo lo puntúa, genera el CID y acuña $COGN → aparece el recibo con enlace al explorer, sube el contador de minería y el balance del usuario. Abajo, la tabla de vesting leída on-chain muestra que equipo e inversores siguen a 0% hasta su cliff.
+
+- `oracle/server.js` — servicio backend con la wallet del oráculo. `scoreReasoning()` es el stub de Vertex AI (profundidad, pasos, conclusión) y `fakeCid()` el stand-in del pinning a IPFS: son los dos puntos de integración reales.
+- `web/` — dApp React + ethers v6, sólo lectura salvo conectar wallet y reclamar vesting.
+
 ## Decisiones de diseño que los jueces van a mirar
 
 1. **Hard cap y cubeta de minería separada.** El contrato no sólo limita el suministro total a 1B: `totalMined` impide que la minería cognitiva supere nunca los 400M, incluso si alguien quema tokens (quemar no reabre espacio de emisión).

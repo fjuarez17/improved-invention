@@ -7,3 +7,6 @@ coverage
 coverage.json
 deployments/localhost.json
 deployments/hardhat.json
+web/node_modules
+web/dist
+oracle/node_modules
