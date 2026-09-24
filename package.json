@@ -1,0 +1,21 @@
+{
+  "name": "calchai-cogn",
+  "version": "1.0.0",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:monad": "hardhat run scripts/deploy.js --network monadTestnet"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "description": "COGN Proof of Reasoning token and vesting for CalchAI on Monad",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^18.0.3",
+    "hardhat": "^2.29.1"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0"
+  }
+}

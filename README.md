@@ -1,0 +1,44 @@
+# CalchAI — $COGN (Proof of Reasoning) — MVP on Monad
+
+Smart contracts del token $COGN: hard cap de 1.000.000.000, emisión de recompensas controlada por el Oráculo de CalchAI con recibo criptográfico (CID de IPFS), y bóveda de vesting con TGE + cliff + liberación lineal.
+
+- `contracts/CognitionToken.sol` — ERC-20 (Permit + Burnable, Ownable2Step). 600M se acuñan en el TGE; los 400M de Minería Cognitiva sólo puede emitirlos el oráculo.
+- `contracts/CognitionVesting.sol` — bóveda de vesting irrevocable por beneficiario (TGE %, cliff, lineal).
+- `scripts/tokenomics.js` — única fuente de verdad de la distribución y el calendario.
+- `scripts/deploy.js` — despliegue + configuración del oráculo + creación de los calendarios de vesting.
+- `scripts/mintReward.js` — ejemplo de lo que hace tu backend (Vertex AI) al validar un razonamiento.
+
+## Setup
+
+```bash
+npm install
+cp .env.example .env    # pon tu PRIVATE_KEY de la wallet de despliegue
+npx hardhat compile
+npx hardhat test
+```
+
+## Deploy en Monad Testnet (chainId 10143)
+
+```bash
+npx hardhat run scripts/deploy.js --network monadTestnet
+```
+
+Guarda las direcciones en `deployments/monadTestnet.json`. Si no defines las direcciones por categoría en `.env`, todas apuntan al deployer (suficiente para la demo del hackathon).
+
+Recompensar un razonamiento validado:
+
+```bash
+USER_ADDRESS=0x... AMOUNT=25 CID=bafy... npx hardhat run scripts/mintReward.js --network monadTestnet
+```
+
+Red: `https://testnet-rpc.monad.xyz/` · Chain ID `10143` · Símbolo `MON` · Explorer `https://testnet.monadexplorer.com`.
+
+## Decisiones de diseño que los jueces van a mirar
+
+1. **Hard cap y cubeta de minería separada.** El contrato no sólo limita el suministro total a 1B: `totalMined` impide que la minería cognitiva supere nunca los 400M, incluso si alguien quema tokens (quemar no reabre espacio de emisión).
+2. **Emisión sólo por oráculo, con freno de mano.** Ni el owner puede acuñar recompensas. `maxRewardPerMint` limita el daño si la wallet del backend se ve comprometida, y el owner puede rotar el oráculo.
+3. **Recibo criptográfico por razonamiento.** Cada emisión lleva el CID de IPFS de la traza de razonamiento y se registra en `rewardedReasoning`, así que el mismo razonamiento no se puede cobrar dos veces y cualquiera puede auditar en Monad por qué se pagó.
+4. **Vesting irrevocable.** Equipo (cliff 12m, lineal 48m) e inversores (cliff 6m, lineal 24m) no pueden desbloquear antes de tiempo: no hay función de rescate sobre tokens ya comprometidos.
+5. **Ownable2Step + ERC20Permit.** Evita perder el control por transferir ownership a una dirección errónea, y permite aprobaciones sin gas para la UX del estudiante.
+
+Ver [TOKENOMICS.md](./TOKENOMICS.md) para la distribución y el calendario completos.
