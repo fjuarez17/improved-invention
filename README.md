@@ -17,7 +17,16 @@ npx hardhat compile
 npx hardhat test
 ```
 
-## Deploy en Monad Testnet (chainId 10143)
+## Desplegado en Monad Testnet (chainId 10143)
+
+| Contrato | Dirección (verificada en el explorer) |
+|---|---|
+| CognitionToken ($COGN) | [`0x3721E5c3162FEA106ddC42baBAcEF09664EF625F`](https://testnet.monadexplorer.com/address/0x3721E5c3162FEA106ddC42baBAcEF09664EF625F) |
+| CognitionVesting | [`0xe5b63EE0BF037a0535E7f13a406019b3b7D5DF9A`](https://testnet.monadexplorer.com/address/0xe5b63EE0BF037a0535E7f13a406019b3b7D5DF9A) |
+
+Recompensa cognitiva de demo (25 COGN con CID de IPFS como recibo): [`0x5e131454ac22c6913eebe89854f59d35dacedb31dde76b6552a3844851040f1f`](https://testnet.monadexplorer.com/tx/0x5e131454ac22c6913eebe89854f59d35dacedb31dde76b6552a3844851040f1f)
+
+## Volver a desplegar
 
 ```bash
 npx hardhat run scripts/deploy.js --network monadTestnet
@@ -32,6 +41,12 @@ USER_ADDRESS=0x... AMOUNT=25 CID=bafy... npx hardhat run scripts/mintReward.js -
 ```
 
 Red: `https://testnet-rpc.monad.xyz/` · Chain ID `10143` · Símbolo `MON` · Explorer `https://testnet.monadexplorer.com`.
+
+Verificar código fuente (Monad usa Sourcify, no Etherscan):
+
+```bash
+npx hardhat verify --network monadTestnet <TOKEN> <OWNER> <ALLOCATION_RECEIVER>
+```
 
 ## Decisiones de diseño que los jueces van a mirar
 
