@@ -19,18 +19,11 @@ module.exports = {
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
     },
   },
-  etherscan: {
-    apiKey: { monadTestnet: process.env.MONAD_EXPLORER_API_KEY || "empty" },
-    customChains: [
-      {
-        network: "monadTestnet",
-        chainId: 10143,
-        urls: {
-          apiURL: "https://sourcify-api-monad.blockvision.org",
-          browserURL: "https://testnet.monadexplorer.com",
-        },
-      },
-    ],
+  // Monad Testnet verifies through Sourcify, not an Etherscan-style API.
+  etherscan: { enabled: false },
+  sourcify: {
+    enabled: true,
+    apiUrl: "https://sourcify-api-monad.blockvision.org",
+    browserUrl: "https://testnet.monadexplorer.com",
   },
-  sourcify: { enabled: true },
 };

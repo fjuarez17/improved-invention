@@ -17,7 +17,16 @@ npx hardhat compile
 npx hardhat test
 ```
 
-## Deploy en Monad Testnet (chainId 10143)
+## Desplegado en Monad Testnet (chainId 10143)
+
+| Contrato | Dirección (verificada en el explorer) |
+|---|---|
+| CognitionToken ($COGN) | [`0x3721E5c3162FEA106ddC42baBAcEF09664EF625F`](https://testnet.monadexplorer.com/address/0x3721E5c3162FEA106ddC42baBAcEF09664EF625F) |
+| CognitionVesting | [`0xe5b63EE0BF037a0535E7f13a406019b3b7D5DF9A`](https://testnet.monadexplorer.com/address/0xe5b63EE0BF037a0535E7f13a406019b3b7D5DF9A) |
+
+Recompensa cognitiva de demo (25 COGN con CID de IPFS como recibo): [`0x5e131454ac22c6913eebe89854f59d35dacedb31dde76b6552a3844851040f1f`](https://testnet.monadexplorer.com/tx/0x5e131454ac22c6913eebe89854f59d35dacedb31dde76b6552a3844851040f1f)
+
+## Volver a desplegar
 
 ```bash
 npx hardhat run scripts/deploy.js --network monadTestnet
@@ -32,6 +41,34 @@ USER_ADDRESS=0x... AMOUNT=25 CID=bafy... npx hardhat run scripts/mintReward.js -
 ```
 
 Red: `https://testnet-rpc.monad.xyz/` · Chain ID `10143` · Símbolo `MON` · Explorer `https://testnet.monadexplorer.com`.
+
+Verificar código fuente (Monad usa Sourcify, no Etherscan):
+
+```bash
+npx hardhat verify --network monadTestnet <TOKEN> <OWNER> <ALLOCATION_RECEIVER>
+```
+
+## Propiedad de los contratos
+
+Ownable2Step en dos pasos: el owner actual propone y el destinatario confirma.
+
+```bash
+NEW_OWNER=0x... npx hardhat run scripts/transferOwnership.js --network monadTestnet
+```
+
+El destinatario acepta desde la dApp (aparece un aviso "Aceptar ownership" al conectar la wallet pendiente) o llamando `acceptOwnership()` en el token y en el vault. En mainnet el destinatario debe ser un Safe multisig; en testnet basta la wallet del equipo.
+
+## Demo (dApp + servicio de oráculo)
+
+```bash
+npm run oracle      # servicio del oráculo en :8787 (firma con ORACLE_PRIVATE_KEY)
+npm run web         # dApp en :5173
+```
+
+Flujo de la demo ante los jueces: conectar MetaMask (la dApp añade Monad Testnet sola) → pegar un razonamiento → el oráculo lo puntúa, genera el CID y acuña $COGN → aparece el recibo con enlace al explorer, sube el contador de minería y el balance del usuario. Abajo, la tabla de vesting leída on-chain muestra que equipo e inversores siguen a 0% hasta su cliff.
+
+- `oracle/server.js` — servicio backend con la wallet del oráculo. `scoreReasoning()` es el stub de Vertex AI (profundidad, pasos, conclusión) y `fakeCid()` el stand-in del pinning a IPFS: son los dos puntos de integración reales.
+- `web/` — dApp React + ethers v6, sólo lectura salvo conectar wallet y reclamar vesting.
 
 ## Decisiones de diseño que los jueces van a mirar
 
