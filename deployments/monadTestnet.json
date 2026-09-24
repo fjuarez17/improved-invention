@@ -12,5 +12,6 @@
     "investors": "0x3fB3CBE790aBEBFe99aF8f7aDE899226a2914DD8",
     "airdrop": "0x3fB3CBE790aBEBFe99aF8f7aDE899226a2914DD8"
   },
-  "tgeTimestamp": 1790216039
+  "tgeTimestamp": 1790216039,
+  "pendingOwner": "0x55D931170F318beb8E794279415208cfAa770847"
 }

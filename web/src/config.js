@@ -24,6 +24,9 @@ export const TOKEN_ABI = [
   "function remainingMiningSupply() view returns (uint256)",
   "function oracleAddress() view returns (address)",
   "function maxRewardPerMint() view returns (uint256)",
+  "function owner() view returns (address)",
+  "function pendingOwner() view returns (address)",
+  "function acceptOwnership()",
   "event CognitiveRewardMinted(address indexed user, uint256 amount, string reasoningCid)",
 ];
 
@@ -33,4 +36,7 @@ export const VESTING_ABI = [
   "function vestedAmount(uint256) view returns (uint256)",
   "function releasableAmount(uint256) view returns (uint256)",
   "function release(uint256)",
+  "function owner() view returns (address)",
+  "function pendingOwner() view returns (address)",
+  "function acceptOwnership()",
 ];

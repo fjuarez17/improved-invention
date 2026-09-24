@@ -55,6 +55,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [pendingOwner, setPendingOwner] = useState(null);
 
   const token = new Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
   const vesting = new Contract(VESTING_ADDRESS, VESTING_ABI, readProvider);
@@ -69,6 +70,7 @@ export default function App() {
       () => token.maxRewardPerMint(),
     ]);
     setStats({ maxSupply, totalSupply, mining, mined, oracle, maxReward });
+    setPendingOwner(await token.pendingOwner());
 
     const count = Number(await vesting.scheduleCount());
     const list = [];
@@ -162,6 +164,18 @@ export default function App() {
     }
   }
 
+  async function acceptOwnership() {
+    setError(null);
+    try {
+      const signer = await new BrowserProvider(window.ethereum).getSigner();
+      await (await new Contract(TOKEN_ADDRESS, TOKEN_ABI, signer).acceptOwnership()).wait();
+      await (await new Contract(VESTING_ADDRESS, VESTING_ABI, signer).acceptOwnership()).wait();
+      await loadStats();
+    } catch (e) {
+      setError(`No se pudo aceptar el ownership: ${e.shortMessage || e.message}`);
+    }
+  }
+
   async function claim(id) {
     const provider = new BrowserProvider(window.ethereum);
     const contract = new Contract(VESTING_ADDRESS, VESTING_ABI, await provider.getSigner());
@@ -186,6 +200,16 @@ export default function App() {
       </header>
 
       {error && <div className="error">{error}</div>}
+
+      {account && pendingOwner && account.toLowerCase() === pendingOwner.toLowerCase() && (
+        <div className="result warn">
+          <strong>Tienes el ownership pendiente de aceptar</strong>
+          <div>Ownable2Step: confirma para tomar el control del token y del vault de vesting.</div>
+          <button className="primary" onClick={acceptOwnership}>
+            Aceptar ownership
+          </button>
+        </div>
+      )}
 
       <section className="grid">
         <Stat label="Hard cap" value={stats ? `${fmt(stats.maxSupply, 0)} COGN` : "…"} sub="inmutable en el contrato" />

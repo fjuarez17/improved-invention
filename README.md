@@ -48,6 +48,16 @@ Verificar código fuente (Monad usa Sourcify, no Etherscan):
 npx hardhat verify --network monadTestnet <TOKEN> <OWNER> <ALLOCATION_RECEIVER>
 ```
 
+## Propiedad de los contratos
+
+Ownable2Step en dos pasos: el owner actual propone y el destinatario confirma.
+
+```bash
+NEW_OWNER=0x... npx hardhat run scripts/transferOwnership.js --network monadTestnet
+```
+
+El destinatario acepta desde la dApp (aparece un aviso "Aceptar ownership" al conectar la wallet pendiente) o llamando `acceptOwnership()` en el token y en el vault. En mainnet el destinatario debe ser un Safe multisig; en testnet basta la wallet del equipo.
+
 ## Demo (dApp + servicio de oráculo)
 
 ```bash
