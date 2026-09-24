@@ -6,7 +6,7 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
-const { JsonRpcProvider, Wallet, Contract, parseEther, isAddress } = require("ethers");
+const { JsonRpcProvider, Wallet, Contract, parseEther, isAddress, toUtf8Bytes, keccak256 } = require("ethers");
 
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
@@ -14,6 +14,7 @@ const ABI = [
   "function mintCognitiveReward(address user, uint256 amount, string reasoningCid) external",
   "function oracleAddress() view returns (address)",
   "function maxRewardPerMint() view returns (uint256)",
+  "function rewardedReasoning(bytes32) view returns (bool)",
 ];
 
 const deployment = JSON.parse(
@@ -67,6 +68,15 @@ app.post("/evaluate", async (req, res) => {
 
   const cid = fakeCid(reasoning);
   const amount = parseEther(String(score / 10)); // up to 10 COGN per trace
+
+  if (await token.rewardedReasoning(keccak256(toUtf8Bytes(cid)))) {
+    return res.status(409).json({
+      rewarded: false,
+      score,
+      cid,
+      reason: "this reasoning trace was already rewarded on-chain (duplicate CID)",
+    });
+  }
 
   try {
     const tx = await token.mintCognitiveReward(user, amount, cid);

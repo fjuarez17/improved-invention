@@ -186,6 +186,7 @@ textarea {
 }
 
 .error {
+  overflow-wrap: anywhere;
   background: rgba(220, 61, 92, 0.12);
   border: 1px solid #dc3d5c;
   border-radius: 12px;
@@ -194,8 +195,13 @@ textarea {
   font-size: 14px;
 }
 
+.table-wrap {
+  overflow-x: auto;
+}
+
 table {
   width: 100%;
+  min-width: 520px;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -219,6 +225,7 @@ td {
 }
 
 .mono {
+  overflow-wrap: anywhere;
   font-family: ui-monospace, "SF Mono", monospace;
   font-size: 12px;
 }
@@ -263,4 +270,31 @@ footer {
   justify-content: center;
   font-size: 13px;
   color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 20px 14px 48px;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rewards li {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  footer {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
 }

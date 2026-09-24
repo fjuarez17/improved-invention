@@ -11,7 +11,18 @@ import {
 } from "./config";
 import "./App.css";
 
-const readProvider = new JsonRpcProvider(MONAD_TESTNET.rpcUrls[0]);
+const readProvider = new JsonRpcProvider(MONAD_TESTNET.rpcUrls[0], MONAD_TESTNET.chainId, {
+  batchMaxCount: 1,
+  staticNetwork: true,
+});
+const LOG_CHUNK = 100;
+const LOG_LOOKBACK = 2000;
+
+async function sequential(calls) {
+  const out = [];
+  for (const call of calls) out.push(await call());
+  return out;
+}
 const fmt = (v, digits = 2) =>
   Number(formatEther(v)).toLocaleString("en-US", { maximumFractionDigits: digits });
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -49,23 +60,23 @@ export default function App() {
   const vesting = new Contract(VESTING_ADDRESS, VESTING_ABI, readProvider);
 
   const loadStats = useCallback(async () => {
-    const [maxSupply, totalSupply, mining, mined, oracle, maxReward] = await Promise.all([
-      token.MAX_SUPPLY(),
-      token.totalSupply(),
-      token.MINING_ALLOCATION(),
-      token.totalMined(),
-      token.oracleAddress(),
-      token.maxRewardPerMint(),
+    const [maxSupply, totalSupply, mining, mined, oracle, maxReward] = await sequential([
+      () => token.MAX_SUPPLY(),
+      () => token.totalSupply(),
+      () => token.MINING_ALLOCATION(),
+      () => token.totalMined(),
+      () => token.oracleAddress(),
+      () => token.maxRewardPerMint(),
     ]);
     setStats({ maxSupply, totalSupply, mining, mined, oracle, maxReward });
 
     const count = Number(await vesting.scheduleCount());
     const list = [];
     for (let id = 0; id < count; id++) {
-      const [s, vested, releasable] = await Promise.all([
-        vesting.getSchedule(id),
-        vesting.vestedAmount(id),
-        vesting.releasableAmount(id),
+      const [s, vested, releasable] = await sequential([
+        () => vesting.getSchedule(id),
+        () => vesting.vestedAmount(id),
+        () => vesting.releasableAmount(id),
       ]);
       list.push({ id, s, vested, releasable });
     }
@@ -74,8 +85,17 @@ export default function App() {
 
   const loadRewards = useCallback(async () => {
     const latest = await readProvider.getBlockNumber();
-    const logs = await token.queryFilter(token.filters.CognitiveRewardMinted(), latest - 9000, latest);
-    setRewards(logs.slice(-8).reverse());
+    const filter = token.filters.CognitiveRewardMinted();
+    const found = [];
+    for (let to = latest; to > latest - LOG_LOOKBACK && found.length < 8; to -= LOG_CHUNK) {
+      const from = Math.max(0, to - LOG_CHUNK + 1);
+      try {
+        found.push(...(await token.queryFilter(filter, from, to)).reverse());
+      } catch {
+        break;
+      }
+    }
+    setRewards(found.slice(0, 8));
   }, []);
 
   useEffect(() => {
@@ -126,9 +146,15 @@ export default function App() {
         body: JSON.stringify({ user: account, reasoning }),
       });
       const data = await res.json();
+      if (res.status === 409) {
+        setResult({ ...data, reason: "Esta traza ya fue recompensada on-chain (CID duplicado): edita el razonamiento para generar uno nuevo." });
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "oracle error");
       setResult(data);
-      await Promise.all([loadStats(), loadBalance(account), loadRewards()]);
+      await loadStats();
+      await loadBalance(account);
+      await loadRewards();
     } catch (e) {
       setError(`Oráculo: ${e.message}. ¿Está corriendo \`npm run oracle\`?`);
     } finally {
@@ -217,6 +243,7 @@ export default function App() {
 
       <section className="panel">
         <h2>2 · Vesting: nadie puede hacer dump</h2>
+        <div className="table-wrap">
         <table>
           <thead>
             <tr>
@@ -257,6 +284,7 @@ export default function App() {
             )}
           </tbody>
         </table>
+        </div>
       </section>
 
       <section className="panel">
