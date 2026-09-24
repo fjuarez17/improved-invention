@@ -10,3 +10,4 @@ deployments/hardhat.json
 web/node_modules
 web/dist
 oracle/node_modules
+oracle/.venv
