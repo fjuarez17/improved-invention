@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from web3 import Web3
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
+load_dotenv(ROOT / "oracle.env")  # non-hidden copy, for hosts that skip dotfiles
 load_dotenv(ROOT.parent / ".env")
 
 TOKEN_ABI = json.loads(
@@ -41,13 +43,58 @@ CHAIN_ID = 10143
 # Public-demo guardrails: one reward per wallet per cooldown, and a daily emission budget.
 COOLDOWN_SECONDS = int(os.environ.get("ORACLE_COOLDOWN_SECONDS", "120"))
 DAILY_BUDGET_COGN = float(os.environ.get("ORACLE_DAILY_BUDGET", "5000"))
+MAX_REASONING_CHARS = int(os.environ.get("ORACLE_MAX_REASONING_CHARS", "8000"))
+STATE_FILE = Path(os.environ.get("ORACLE_STATE_FILE", ROOT / "oracle-state.json"))
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "ORACLE_ALLOWED_ORIGINS",
+        "https://dist-zyczpjct.devinapps.com,http://localhost:5173",
+    ).split(",")
+    if o.strip()
+]
 
 w3 = Web3(Web3.HTTPProvider(RPC_URL))
-account = w3.eth.account.from_key(os.environ["ORACLE_PRIVATE_KEY"])
 token = w3.eth.contract(address=Web3.to_checksum_address(TOKEN_ADDRESS), abi=TOKEN_ABI)
 
+
+def oracle_account():
+    """Signing account, resolved on first use so the module imports without the key."""
+    key = os.environ.get("ORACLE_PRIVATE_KEY")
+    if not key:
+        raise RuntimeError("ORACLE_PRIVATE_KEY is not configured")
+    return w3.eth.account.from_key(key)
+
+
+# Emission accounting survives restarts and is serialised: otherwise a restart (or two
+# concurrent requests) would hand out a second full daily allowance.
+mint_lock = threading.Lock()
 last_reward_at: dict[str, float] = {}
 spent_today = {"day": time.gmtime().tm_yday, "amount": 0.0}
+
+
+def load_state() -> None:
+    try:
+        state = json.loads(STATE_FILE.read_text())
+    except (OSError, ValueError):
+        return
+    if state.get("day") == time.gmtime().tm_yday:
+        spent_today.update(day=state["day"], amount=float(state.get("amount", 0.0)))
+    last_reward_at.update(
+        {k: float(v) for k, v in (state.get("lastRewardAt") or {}).items()}
+    )
+
+
+def save_state() -> None:
+    try:
+        STATE_FILE.write_text(
+            json.dumps({**spent_today, "lastRewardAt": last_reward_at})
+        )
+    except OSError:
+        pass  # accounting stays in memory if the filesystem is read-only
+
+
+load_state()
 
 
 def score_reasoning(text: str) -> int:
@@ -73,7 +120,10 @@ def budget_left(amount: float) -> bool:
 
 app = FastAPI(title="CalchAI Oracle")
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["content-type"],
 )
 
 
@@ -84,6 +134,7 @@ class Evaluation(BaseModel):
 
 @app.get("/health")
 def health():
+    account = oracle_account()
     return {
         "oracle": account.address,
         "onChainOracle": token.functions.oracleAddress().call(),
@@ -102,56 +153,70 @@ def evaluate(body: Evaluation):
         return JSONResponse({"error": "invalid user address"}, status_code=400)
     if len(body.reasoning.strip()) < 20:
         return JSONResponse({"error": "reasoning too short to be worth rewarding"}, status_code=400)
+    if len(body.reasoning) > MAX_REASONING_CHARS:
+        return JSONResponse(
+            {"error": f"reasoning longer than {MAX_REASONING_CHARS} characters"},
+            status_code=413,
+        )
 
     user = Web3.to_checksum_address(body.user)
     score = score_reasoning(body.reasoning)
     if score < 40:
         return {"rewarded": False, "score": score, "reason": "score below the 40 quality threshold"}
 
-    waited = time.time() - last_reward_at.get(user, 0)
-    if waited < COOLDOWN_SECONDS:
-        return JSONResponse(
-            {
-                "rewarded": False,
-                "score": score,
-                "reason": f"cooldown: wait {int(COOLDOWN_SECONDS - waited)}s before the next reward",
-            },
-            status_code=429,
-        )
-
     cid = fake_cid(body.reasoning)
     amount = score / 10  # up to 10 COGN per trace
-    if token.functions.rewardedReasoning(Web3.keccak(text=cid)).call():
-        return JSONResponse(
-            {
-                "rewarded": False,
-                "score": score,
-                "cid": cid,
-                "reason": "this reasoning trace was already rewarded on-chain (duplicate CID)",
-            },
-            status_code=409,
-        )
-    if not budget_left(amount):
-        return JSONResponse(
-            {"rewarded": False, "score": score, "reason": "daily emission budget exhausted"},
-            status_code=429,
-        )
 
-    tx = token.functions.mintCognitiveReward(user, w3.to_wei(amount, "ether"), cid).build_transaction(
-        {
-            "from": account.address,
-            "nonce": w3.eth.get_transaction_count(account.address),
-            "chainId": CHAIN_ID,
-        }
-    )
-    signed = account.sign_transaction(tx)
-    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+    # Checks, accounting and signing happen under one lock so two simultaneous requests
+    # cannot share a nonce or spend the same budget twice.
+    with mint_lock:
+        waited = time.time() - last_reward_at.get(user, 0)
+        if waited < COOLDOWN_SECONDS:
+            return JSONResponse(
+                {
+                    "rewarded": False,
+                    "score": score,
+                    "reason": f"cooldown: wait {int(COOLDOWN_SECONDS - waited)}s before the next reward",
+                },
+                status_code=429,
+            )
+        if token.functions.rewardedReasoning(Web3.keccak(text=cid)).call():
+            return JSONResponse(
+                {
+                    "rewarded": False,
+                    "score": score,
+                    "cid": cid,
+                    "reason": "this reasoning trace was already rewarded on-chain (duplicate CID)",
+                },
+                status_code=409,
+            )
+        if not budget_left(amount):
+            return JSONResponse(
+                {"rewarded": False, "score": score, "reason": "daily emission budget exhausted"},
+                status_code=429,
+            )
+
+        account = oracle_account()
+        tx = token.functions.mintCognitiveReward(
+            user, w3.to_wei(amount, "ether"), cid
+        ).build_transaction(
+            {
+                "from": account.address,
+                "nonce": w3.eth.get_transaction_count(account.address),
+                "chainId": CHAIN_ID,
+            }
+        )
+        signed = account.sign_transaction(tx)
+        # Charged as soon as it is broadcast: a late confirmation must not escape the budget.
+        last_reward_at[user] = time.time()
+        spent_today["amount"] += amount
+        save_state()
+        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
     if receipt.status != 1:
         return JSONResponse({"error": "mint reverted", "score": score, "cid": cid}, status_code=500)
 
-    last_reward_at[user] = time.time()
-    spent_today["amount"] += amount
     tx_hex = Web3.to_hex(receipt.transactionHash)
     return {
         "rewarded": True,

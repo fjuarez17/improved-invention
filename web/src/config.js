@@ -9,7 +9,20 @@ export const MONAD_TESTNET = {
 
 export const TOKEN_ADDRESS = import.meta.env.VITE_TOKEN_ADDRESS || "0x3721E5c3162FEA106ddC42baBAcEF09664EF625F";
 export const VESTING_ADDRESS = import.meta.env.VITE_VESTING_ADDRESS || "0xe5b63EE0BF037a0535E7f13a406019b3b7D5DF9A";
-export const ORACLE_API = import.meta.env.VITE_ORACLE_API || "http://localhost:8787";
+// The oracle URL can be overridden at runtime with ?oracle=https://... (persisted in
+// localStorage) so the published dApp can be repointed without a rebuild.
+function resolveOracleApi() {
+  const fallback = import.meta.env.VITE_ORACLE_API || "http://localhost:8787";
+  if (typeof window === "undefined") return fallback;
+  const fromQuery = new URLSearchParams(window.location.search).get("oracle");
+  if (fromQuery) {
+    window.localStorage.setItem("cogn.oracleApi", fromQuery);
+    return fromQuery;
+  }
+  return window.localStorage.getItem("cogn.oracleApi") || fallback;
+}
+
+export const ORACLE_API = resolveOracleApi().replace(/\/$/, "");
 export const EXPLORER = MONAD_TESTNET.blockExplorerUrls[0];
 
 export const TOKEN_ABI = [
