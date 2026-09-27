@@ -158,7 +158,12 @@ export default function App() {
         await fetch(`${ORACLE_API}/claim-payload`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ user: account, reasoning }),
+          body: JSON.stringify({
+            user: account,
+            reasoning,
+            problemId: problemId || null,
+            answer: problemId ? answer : null,
+          }),
         })
       ).json();
       const { domain, types, message } = claim.typedData;

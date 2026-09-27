@@ -204,7 +204,15 @@ def build_claim_payload(body: Evaluation):
     nonce = body.nonce if body.nonce is not None else int(time.time() * 1000)
     return {
         "nonce": nonce,
-        "typedData": claim_payload(body.user, body.reasoning, nonce, CHAIN_ID, TOKEN_ADDRESS),
+        "typedData": claim_payload(
+            body.user,
+            body.reasoning,
+            body.problemId,
+            body.answer,
+            nonce,
+            CHAIN_ID,
+            TOKEN_ADDRESS,
+        ),
     }
 
 
@@ -231,7 +239,14 @@ def evaluate(body: Evaluation):
             )
         try:
             signer = recover_claim_signer(
-                user, body.reasoning, body.nonce, body.signature, CHAIN_ID, TOKEN_ADDRESS
+                user,
+                body.reasoning,
+                body.problemId,
+                body.answer,
+                body.nonce,
+                body.signature,
+                CHAIN_ID,
+                TOKEN_ADDRESS,
             )
         except (ValueError, TypeError, ValidationError):
             return JSONResponse({"error": "malformed signature"}, status_code=401)
@@ -269,6 +284,20 @@ def evaluate(body: Evaluation):
         if body.nonce is not None and body.nonce in used_nonces.get(user, []):
             return JSONResponse({"error": "claim nonce already used"}, status_code=409)
 
+        # The CID depends only on the trace, so an already-paid trace must be rejected as a
+        # duplicate before any rate limit: a 429 would suggest it becomes claimable later.
+        cid, pinned = pin_trace(body.reasoning)
+        if token.functions.rewardedReasoning(Web3.keccak(text=cid)).call():
+            return JSONResponse(
+                {
+                    "rewarded": False,
+                    "score": score,
+                    "cid": cid,
+                    "reason": "this reasoning trace was already rewarded on-chain (duplicate CID)",
+                },
+                status_code=409,
+            )
+
         waited = time.time() - last_reward_at.get(user, 0)
         if waited < COOLDOWN_SECONDS:
             return JSONResponse(
@@ -283,20 +312,6 @@ def evaluate(body: Evaluation):
             return JSONResponse(
                 {"rewarded": False, "score": score, "reason": "daily emission budget exhausted"},
                 status_code=429,
-            )
-
-        # Pinning is content-addressed, so the same trace yields the same CID either way
-        # and the duplicate check below catches a resubmission.
-        cid, pinned = pin_trace(user, body.reasoning, score, body.problemId)
-        if token.functions.rewardedReasoning(Web3.keccak(text=cid)).call():
-            return JSONResponse(
-                {
-                    "rewarded": False,
-                    "score": score,
-                    "cid": cid,
-                    "reason": "this reasoning trace was already rewarded on-chain (duplicate CID)",
-                },
-                status_code=409,
             )
 
         account = oracle_account()

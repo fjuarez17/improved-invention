@@ -5,7 +5,7 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:monad": "hardhat run scripts/deploy.js --network monadTestnet",
-    "oracle": "node oracle/server.js",
+    "oracle": "cd oracle && .venv/bin/uvicorn app.main:app --port 8787",
     "web": "npm --prefix web run dev"
   },
   "keywords": [],

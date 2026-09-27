@@ -6,6 +6,7 @@ stand-in is used and the response says so, so the demo never claims IPFS.
 """
 
 import hashlib
+import json
 import os
 
 import httpx
@@ -26,15 +27,15 @@ def pinning_enabled() -> bool:
     return bool(PINATA_JWT or IPFS_API_URL)
 
 
-def pin_trace(user: str, reasoning: str, score: int, problem_id: str | None) -> tuple[str, bool]:
+def trace_document(reasoning: str) -> dict:
+    """Only the trace: the CID must depend on the reasoning alone, or the same text
+    resubmitted by another wallet would get a fresh CID and be paid twice."""
+    return {"protocol": "CalchAI Proof of Reasoning", "reasoning": reasoning}
+
+
+def pin_trace(reasoning: str) -> tuple[str, bool]:
     """Returns (cid, pinned). Falls back to the deterministic CID on any failure."""
-    document = {
-        "protocol": "CalchAI Proof of Reasoning",
-        "user": user,
-        "problemId": problem_id,
-        "score": score,
-        "reasoning": reasoning,
-    }
+    document = trace_document(reasoning)
     try:
         if PINATA_JWT:
             response = httpx.post(
@@ -48,7 +49,7 @@ def pin_trace(user: str, reasoning: str, score: int, problem_id: str | None) -> 
         if IPFS_API_URL:
             response = httpx.post(
                 f"{IPFS_API_URL.rstrip('/')}/api/v0/add",
-                files={"file": ("trace.json", reasoning.encode())},
+                files={"file": ("trace.json", json.dumps(document, sort_keys=True).encode())},
                 timeout=PIN_TIMEOUT,
             )
             response.raise_for_status()

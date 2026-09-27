@@ -34,8 +34,10 @@ GOOD_TRACE = """Analizo el problema de los trenes.
 Por lo tanto la velocidad buscada del segundo tren resulta ser de 120 kilómetros por hora."""
 
 
-def sign(account, reasoning, nonce):
-    payload = claim_payload(account.address, reasoning, nonce, main.CHAIN_ID, main.TOKEN_ADDRESS)
+def sign(account, reasoning, nonce, problem_id=None, answer=None):
+    payload = claim_payload(
+        account.address, reasoning, problem_id, answer, nonce, main.CHAIN_ID, main.TOKEN_ADDRESS
+    )
     encoded = encode_typed_data(
         domain_data=payload["domain"],
         message_types=payload["types"],
@@ -114,7 +116,7 @@ def test_signature_roundtrip_recovers_the_signer():
     nonce = 1
     signature = sign(USER, GOOD_TRACE, nonce)
     recovered = recover_claim_signer(
-        USER.address, GOOD_TRACE, nonce, signature, main.CHAIN_ID, main.TOKEN_ADDRESS
+        USER.address, GOOD_TRACE, None, None, nonce, signature, main.CHAIN_ID, main.TOKEN_ADDRESS
     )
     assert recovered == USER.address
 
@@ -122,13 +124,22 @@ def test_signature_roundtrip_recovers_the_signer():
 def test_signature_of_a_different_trace_does_not_recover_the_signer():
     signature = sign(USER, GOOD_TRACE, 1)
     recovered = recover_claim_signer(
-        USER.address, GOOD_TRACE + " extra", 1, signature, main.CHAIN_ID, main.TOKEN_ADDRESS
+        USER.address,
+        GOOD_TRACE + " extra",
+        None,
+        None,
+        1,
+        signature,
+        main.CHAIN_ID,
+        main.TOKEN_ADDRESS,
     )
     assert recovered != USER.address
 
 
 def test_claim_payload_binds_chain_and_token():
-    payload = claim_payload(USER.address, GOOD_TRACE, 7, main.CHAIN_ID, main.TOKEN_ADDRESS)
+    payload = claim_payload(
+        USER.address, GOOD_TRACE, None, None, 7, main.CHAIN_ID, main.TOKEN_ADDRESS
+    )
     assert payload["domain"]["chainId"] == main.CHAIN_ID
     assert payload["domain"]["verifyingContract"].lower() == main.TOKEN_ADDRESS.lower()
     assert payload["message"]["nonce"] == 7
@@ -175,7 +186,7 @@ def test_unknown_problem_is_rejected(client):
             "problemId": "nope",
             "answer": "120",
             "nonce": 1,
-            "signature": sign(USER, GOOD_TRACE, 1),
+            "signature": sign(USER, GOOD_TRACE, 1, "nope", "120"),
         },
     )
     assert response.status_code == 400
@@ -190,7 +201,7 @@ def test_wrong_answer_earns_nothing(client):
             "problemId": "trains",
             "answer": "999",
             "nonce": 1,
-            "signature": sign(USER, GOOD_TRACE, 1),
+            "signature": sign(USER, GOOD_TRACE, 1, "trains", "999"),
         },
     )
     assert response.json()["rewarded"] is False
@@ -216,13 +227,30 @@ def test_verified_answer_pays_more_than_free_form(client, chain):
             "problemId": "trains",
             "answer": "120 km/h",
             "nonce": 2,
-            "signature": sign(USER, GOOD_TRACE, 2),
+            "signature": sign(USER, GOOD_TRACE, 2, "trains", "120 km/h"),
         },
     ).json()
     assert free["rewarded"] and verified["rewarded"]
     assert free["answerVerified"] is False
     assert verified["answerVerified"] is True
     assert verified["amount"] > free["amount"]
+
+
+def test_free_form_signature_cannot_be_upgraded_to_a_verified_claim(client, chain):
+    """The signed claim covers the answer, so a free-form authorization cannot be
+    replayed with a correct answer bolted on to collect the verified reward."""
+    response = client.post(
+        "/evaluate",
+        json={
+            "user": USER.address,
+            "reasoning": GOOD_TRACE,
+            "problemId": "trains",
+            "answer": "120",
+            "nonce": 3,
+            "signature": sign(USER, GOOD_TRACE, 3),
+        },
+    )
+    assert response.status_code == 401
 
 
 def test_nonce_cannot_be_replayed(client, chain):
@@ -301,6 +329,8 @@ def test_claim_payload_endpoint_returns_signable_typed_data(client):
         recover_claim_signer(
             USER.address,
             GOOD_TRACE,
+            None,
+            None,
             body["nonce"],
             signature,
             main.CHAIN_ID,

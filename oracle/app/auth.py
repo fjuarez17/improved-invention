@@ -2,7 +2,8 @@
 
 Without this the oracle mints to whatever address the caller types, so anyone
 could be paid for somebody else's reasoning. The claim binds the trace hash, the
-beneficiary and a nonce, and only the beneficiary's key can produce it.
+beneficiary, the answer being claimed and a nonce, and only the beneficiary's key
+can produce it.
 """
 
 from eth_account import Account
@@ -16,6 +17,8 @@ CLAIM_TYPES = {
     "ReasoningClaim": [
         {"name": "user", "type": "address"},
         {"name": "reasoningHash", "type": "bytes32"},
+        {"name": "problemId", "type": "string"},
+        {"name": "answer", "type": "string"},
         {"name": "nonce", "type": "uint256"},
     ]
 }
@@ -25,7 +28,15 @@ def reasoning_hash(reasoning: str) -> str:
     return Web3.to_hex(Web3.keccak(text=reasoning))
 
 
-def claim_payload(user: str, reasoning: str, nonce: int, chain_id: int, token: str) -> dict:
+def claim_payload(
+    user: str,
+    reasoning: str,
+    problem_id: str | None,
+    answer: str | None,
+    nonce: int,
+    chain_id: int,
+    token: str,
+) -> dict:
     """The exact typed-data object the dApp must sign with eth_signTypedData_v4."""
     return {
         "domain": {
@@ -39,15 +50,24 @@ def claim_payload(user: str, reasoning: str, nonce: int, chain_id: int, token: s
         "message": {
             "user": Web3.to_checksum_address(user),
             "reasoningHash": reasoning_hash(reasoning),
+            "problemId": problem_id or "",
+            "answer": answer or "",
             "nonce": nonce,
         },
     }
 
 
 def recover_claim_signer(
-    user: str, reasoning: str, nonce: int, signature: str, chain_id: int, token: str
+    user: str,
+    reasoning: str,
+    problem_id: str | None,
+    answer: str | None,
+    nonce: int,
+    signature: str,
+    chain_id: int,
+    token: str,
 ) -> str:
-    payload = claim_payload(user, reasoning, nonce, chain_id, token)
+    payload = claim_payload(user, reasoning, problem_id, answer, nonce, chain_id, token)
     encoded = encode_typed_data(
         domain_data=payload["domain"],
         message_types=payload["types"],

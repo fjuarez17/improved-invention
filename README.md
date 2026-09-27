@@ -61,14 +61,13 @@ El destinatario acepta desde la dApp (aparece un aviso "Aceptar ownership" al co
 ## Demo (dApp + servicio de oráculo)
 
 ```bash
-npm run oracle      # servicio del oráculo en :8787 (firma con ORACLE_PRIVATE_KEY)
+npm run oracle      # oráculo FastAPI en :8787 (firma con ORACLE_PRIVATE_KEY)
 npm run web         # dApp en :5173
 ```
 
 Flujo de la demo ante los jueces: conectar MetaMask (la dApp añade Monad Testnet sola) → pegar un razonamiento → el oráculo lo puntúa, genera el CID y acuña $COGN → aparece el recibo con enlace al explorer, sube el contador de minería y el balance del usuario. Abajo, la tabla de vesting leída on-chain muestra que equipo e inversores siguen a 0% hasta su cliff.
 
-- `oracle/app/main.py` — oráculo de producción (FastAPI) con cooldown por wallet y presupuesto diario de emisión; es el que se despliega público.
-- `oracle/server.js` — servicio backend con la wallet del oráculo. `scoreReasoning()` es el stub de Vertex AI (profundidad, pasos, conclusión) y `fakeCid()` el stand-in del pinning a IPFS: son los dos puntos de integración reales.
+- `oracle/app/` — servicio backend (FastAPI) con la wallet del oráculo: verifica la firma EIP-712 del beneficiario, comprueba la respuesta del problema, puntúa la traza y pinea el CID. `score_reasoning()` es el punto de integración de Vertex AI; `pin_trace()` el del almacenamiento (Pinata / nodo IPFS).
 - `web/` — dApp React + ethers v6, sólo lectura salvo conectar wallet y reclamar vesting.
 
 ## Decisiones de diseño que los jueces van a mirar

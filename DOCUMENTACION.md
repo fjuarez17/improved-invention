@@ -48,7 +48,6 @@ Componentes del repositorio:
 | `scripts/tokenomics.js` | Fuente única de verdad de la distribución y el calendario. |
 | `scripts/deploy.js` | Despliegue + configuración del oráculo + creación de calendarios. |
 | `scripts/transferOwnership.js` | Transferencia Ownable2Step del token y del vault. |
-| `oracle/server.js` | Oráculo de desarrollo (Node, puerto 8787). |
 | `oracle/app/main.py` | Oráculo de producción (FastAPI): firma, verificación, puntuación y emisión. |
 | `oracle/app/auth.py` | Dominio EIP-712 `CalchAI Proof of Reasoning` y recuperación del firmante. |
 | `oracle/app/problems.py` | Problemas con respuesta comprobable objetivamente. |
@@ -119,7 +118,7 @@ Ambos contratos están verificados vía Sourcify en el explorer de Monad. Red: `
 ```bash
 npm install
 npx hardhat test          # 16 tests
-npm run oracle            # oráculo Node en :8787
+npm run oracle            # oráculo FastAPI en :8787
 npm run web               # dApp en :5173
 ```
 
