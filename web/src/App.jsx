@@ -52,6 +52,9 @@ export default function App() {
   const [schedules, setSchedules] = useState([]);
   const [rewards, setRewards] = useState([]);
   const [reasoning, setReasoning] = useState(SAMPLE);
+  const [problems, setProblems] = useState([]);
+  const [problemId, setProblemId] = useState("");
+  const [answer, setAnswer] = useState("");
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -101,6 +104,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    fetch(`${ORACLE_API}/problems`)
+      .then((r) => r.json())
+      .then((d) => setProblems(d.problems ?? []))
+      .catch(() => setProblems([]));
+  }, []);
+
+  useEffect(() => {
     loadStats().catch((e) => setError(e.message));
     loadRewards().catch(() => {});
     const timer = setInterval(() => loadStats().catch(() => {}), 15000);
@@ -142,10 +152,30 @@ export default function App() {
     setError(null);
     setResult(null);
     try {
+      // The wallet signs the trace before it is worth anything: the oracle rewards the
+      // author, not whoever pastes the text into the form.
+      const claim = await (
+        await fetch(`${ORACLE_API}/claim-payload`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ user: account, reasoning }),
+        })
+      ).json();
+      const { domain, types, message } = claim.typedData;
+      const signer = await new BrowserProvider(window.ethereum).getSigner();
+      const signature = await signer.signTypedData(domain, types, message);
+
       const res = await fetch(`${ORACLE_API}/evaluate`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ user: account, reasoning }),
+        body: JSON.stringify({
+          user: account,
+          reasoning,
+          nonce: claim.nonce,
+          signature,
+          problemId: problemId || null,
+          answer: problemId ? answer : null,
+        }),
       });
       const data = await res.json();
       if (res.status === 409) {
@@ -233,13 +263,30 @@ export default function App() {
       <section className="panel">
         <h2>1 · Gana $COGN razonando</h2>
         <p className="hint">
-          El oráculo de CalchAI puntúa la traza, la ancla a IPFS y acuña la recompensa. Ninguna otra wallet puede
-          emitir: oráculo on-chain{" "}
+          Firmas la traza con tu wallet (EIP-712, sin gas) y el oráculo sólo recompensa a quien firma. Ninguna otra
+          wallet puede emitir: oráculo on-chain{" "}
           <a href={`${EXPLORER}/address/${stats?.oracle ?? ""}`} target="_blank" rel="noreferrer">
             {stats ? short(stats.oracle) : "…"}
           </a>
-          .
+          . Resolver un problema con respuesta verificable paga hasta 10× más que una traza libre.
         </p>
+        <div className="problem-row">
+          <select value={problemId} onChange={(e) => setProblemId(e.target.value)}>
+            <option value="">Traza libre (recompensa simbólica)</option>
+            {problems.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.statement}
+              </option>
+            ))}
+          </select>
+          {problemId && (
+            <input
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              placeholder="Respuesta final (se verifica)"
+            />
+          )}
+        </div>
         <textarea rows={10} value={reasoning} onChange={(e) => setReasoning(e.target.value)} />
         <button className="primary" onClick={submitReasoning} disabled={busy}>
           {busy ? "Evaluando razonamiento…" : "Enviar al oráculo"}
@@ -250,7 +297,21 @@ export default function App() {
             {result.rewarded ? (
               <>
                 <strong>Score {result.score}/100 → {result.amount} COGN</strong>
-                <div className="mono">CID: {result.cid}</div>
+                <div>
+                  {result.answerVerified
+                    ? "Respuesta verificada objetivamente"
+                    : "Traza libre: sin respuesta verificable, recompensa reducida"}
+                </div>
+                <div className="mono">
+                  CID: {result.cid}{" "}
+                  {result.cidPinned ? (
+                    <a href={result.cidUrl} target="_blank" rel="noreferrer">
+                      (pinneado en IPFS ↗)
+                    </a>
+                  ) : (
+                    "(hash determinista: aún sin pinning IPFS configurado)"
+                  )}
+                </div>
                 <a href={result.explorer} target="_blank" rel="noreferrer">
                   Ver recibo en el explorer ↗
                 </a>
