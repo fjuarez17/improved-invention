@@ -93,6 +93,7 @@ import {
   withTimeout,
 } from "./deliveryPolicy.js";
 import * as signing from "./signing.js";
+import { evaluateReasoning } from "./reasoningEval.js";
 import { READ_TOOL_CATALOG, type ReadToolName } from "./readToolCatalog.js";
 
 const APP_NAME = "agent";
@@ -257,7 +258,13 @@ export function buildRunWork(): McpRunWork {
         return result.text.trim();
       };
     }
-    return run(prompt, context);
+    // CalchAI: the deliverable is the deterministic evaluation, on this
+    // entrypoint too — the LLM only writes the feedback inside it.
+    const writeFeedback = run;
+    const evaluation = await evaluateReasoning(prompt, (p) =>
+      writeFeedback(p, context),
+    );
+    return JSON.stringify(evaluation, null, 2);
   };
 }
 

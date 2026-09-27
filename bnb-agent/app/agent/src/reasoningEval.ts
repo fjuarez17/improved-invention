@@ -72,6 +72,15 @@ function findTrace(
   return null;
 }
 
+/** Python's `round()` (ties-to-even), so the two scorers agree on .5 totals. */
+function roundHalfEven(value: number): number {
+  const floor = Math.floor(value);
+  const rest = value - floor;
+  if (rest > 0.5) return floor + 1;
+  if (rest < 0.5) return floor;
+  return floor % 2 === 0 ? floor : floor + 1;
+}
+
 /**
  * Deterministic 0-100 score: depth (words), structure (explicit steps) and
  * whether the trace closes with a conclusion.
@@ -82,17 +91,18 @@ export function scoreReasoning(text: string): {
 } {
   const words = text.split(/\s+/).filter((w) => w !== "").length;
   const steps = (text.match(/\n\s*(\d+\.|-|\*)/g) ?? []).length;
-  const hasConclusion =
-    /(por lo tanto|therefore|conclusi[oó]n|luego|en resumen)/i.test(text);
+  const hasConclusion = /(por lo tanto|therefore|conclusi[oó]n|luego)/i.test(
+    text,
+  );
   const depth = Math.min(words / 120, 1) * 0.5;
   const structure = Math.min(steps / 5, 1) * 0.3;
   const conclusion = hasConclusion ? 0.2 : 0;
   return {
-    score: Math.round((depth + structure + conclusion) * 100),
+    score: roundHalfEven((depth + structure + conclusion) * 100),
     breakdown: {
-      depth: Math.round(depth * 100),
-      structure: Math.round(structure * 100),
-      conclusion: Math.round(conclusion * 100),
+      depth: roundHalfEven(depth * 100),
+      structure: roundHalfEven(structure * 100),
+      conclusion: roundHalfEven(conclusion * 100),
     },
   };
 }
@@ -156,7 +166,9 @@ export async function evaluateReasoning(
     feedback = sanitizeFeedback(
       await writeFeedback(feedbackPrompt(problemContext, reasoningTrace, score)),
     );
-  } catch {
+  } catch (err) {
+    // A cancelled delivery must stay cancelled: only model failures fall back.
+    if (err instanceof Error && /Abort|Timeout/.test(err.name)) throw err;
     feedback = "";
   }
   return {
