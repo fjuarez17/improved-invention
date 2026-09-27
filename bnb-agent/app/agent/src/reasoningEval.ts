@@ -38,6 +38,9 @@ export function extractTrace(prompt: string): {
       const parsed = JSON.parse(prompt.slice(jsonStart)) as unknown;
       const found = findTrace(parsed);
       if (found !== null) return found;
+      // A structured envelope with no trace is an invalid job, not free text:
+      // scoring the wrapper would invent a score for something nobody reasoned.
+      return { problemContext: "", reasoningTrace: "" };
     } catch {
       // not JSON — fall through to the raw prompt
     }
@@ -82,8 +85,30 @@ function roundHalfEven(value: number): number {
 }
 
 /**
+ * Collapses the score of padded or copy-pasted text: repeated words and
+ * repeated lines are what generated filler looks like. Mirrors `originality`
+ * in the Monad oracle.
+ */
+export function originality(text: string): number {
+  const words = text
+    .split(/\s+/)
+    .filter((w) => w !== "")
+    .map((w) => w.replace(/[^\p{L}\p{N}_]/gu, "").toLowerCase())
+    .filter((w) => w !== "");
+  if (words.length === 0) return 0;
+  const uniqueWords = new Set(words).size / words.length;
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim().toLowerCase())
+    .filter((l) => l !== "");
+  const uniqueLines =
+    lines.length === 0 ? 1 : new Set(lines).size / lines.length;
+  return Math.min(uniqueWords / 0.5, 1) * Math.min(uniqueLines / 0.8, 1);
+}
+
+/**
  * Deterministic 0-100 score: depth (words), structure (explicit steps) and
- * whether the trace closes with a conclusion.
+ * whether the trace closes with a conclusion, scaled by originality.
  */
 export function scoreReasoning(text: string): {
   score: number;
@@ -94,9 +119,10 @@ export function scoreReasoning(text: string): {
   const hasConclusion = /(por lo tanto|therefore|conclusi[oó]n|luego)/i.test(
     text,
   );
-  const depth = Math.min(words / 120, 1) * 0.5;
-  const structure = Math.min(steps / 5, 1) * 0.3;
-  const conclusion = hasConclusion ? 0.2 : 0;
+  const factor = originality(text);
+  const depth = Math.min(words / 120, 1) * 0.5 * factor;
+  const structure = Math.min(steps / 5, 1) * 0.3 * factor;
+  const conclusion = (hasConclusion ? 0.2 : 0) * factor;
   return {
     score: roundHalfEven((depth + structure + conclusion) * 100),
     breakdown: {
@@ -160,6 +186,18 @@ export async function evaluateReasoning(
   writeFeedback: (p: string) => Promise<string>,
 ): Promise<ReasoningEvaluation> {
   const { problemContext, reasoningTrace } = extractTrace(prompt);
+  if (reasoningTrace.trim() === "") {
+    return {
+      status: "evaluated",
+      score: 0,
+      breakdown: { depth: 0, structure: 0, conclusion: 0 },
+      metacognitiveDelta:
+        "La solicitud no incluye una traza de razonamiento: envía `reasoningTrace` con los pasos seguidos.",
+      reasoningCid: "",
+      rewardEligible: false,
+      timestamp: new Date().toISOString(),
+    };
+  }
   const { score, breakdown } = scoreReasoning(reasoningTrace);
   let feedback = "";
   try {
