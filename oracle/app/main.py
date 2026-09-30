@@ -22,7 +22,7 @@ from web3 import Web3
 
 from .auth import claim_payload, recover_claim_signer
 from .pinning import gateway_url, pin_trace, pinning_enabled
-from .problems import PROBLEMS, check_answer
+from .problems import PROBLEMS, addresses_problem, check_answer
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -267,6 +267,12 @@ def evaluate(body: Evaluation):
                 "rewarded": False,
                 "score": 0,
                 "reason": "the submitted answer is incorrect, so the trace earns nothing",
+            }
+        if not addresses_problem(problem, body.reasoning):
+            return {
+                "rewarded": False,
+                "score": 0,
+                "reason": "the trace does not work with this problem's data to reach the answer",
             }
         verified = True
 

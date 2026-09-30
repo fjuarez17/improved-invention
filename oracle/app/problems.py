@@ -85,3 +85,30 @@ def check_answer(problem: Problem, submitted: str) -> bool:
         return False
     tolerance = problem.tolerance or 0.0
     return abs(got - expected) <= abs(expected) * tolerance
+
+
+def _numbers_in(text: str) -> set[float]:
+    found: set[float] = set()
+    for token in re.findall(r"\d+(?:[.,]\d+)*", text):
+        candidates = (
+            token.replace(",", "."),
+            token.replace(".", "").replace(",", "."),
+            token.replace(",", ""),
+        )
+        for candidate in candidates:
+            try:
+                found.add(float(candidate))
+            except ValueError:
+                pass
+    return found
+
+
+def addresses_problem(problem: Problem, reasoning: str) -> bool:
+    """A correct answer only counts if the trace works with the problem's own data
+    and reaches that answer; otherwise any text plus a public answer would qualify."""
+    in_trace = _numbers_in(reasoning)
+    expected = _as_number(problem.answer)
+    if expected is not None and expected not in in_trace:
+        return False
+    givens = _numbers_in(problem.statement)
+    return len(givens & in_trace) >= min(2, len(givens))

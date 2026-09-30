@@ -25,7 +25,7 @@ Usuario ──razonamiento──▶ dApp (React + ethers v6)
                    Oráculo (FastAPI, wallet dedicada)
                      · recupera el firmante y exige firmante == beneficiario
                      · rechaza nonces ya usados (anti-replay, persistido)
-                     · verifica la respuesta del problema si se eligió uno
+                     · verifica la respuesta del problema si se eligió uno y que la traza use sus datos
                      · puntúa la traza (0-100) penalizando relleno repetido
                      · pinea la traza en IPFS si hay credenciales; si no, CID determinista marcado como tal
                      · cooldown por wallet + presupuesto diario
@@ -142,9 +142,12 @@ cd oracle && .venv/bin/python -m pytest tests -q
 
 Sin firma, cualquiera podía pegar el razonamiento de otro y cobrarlo: el oráculo aceptaba la
 dirección que le pasara quien llamase. Ahora la wallet firma `ReasoningClaim(user, reasoningHash,
-nonce)` y el oráculo sólo emite si el firmante recuperado es el beneficiario. Y como la prosa se
-genera gratis, la recompensa completa (`ORACLE_VERIFIED_MAX_COGN`) requiere resolver un problema
-con respuesta comprobable; la traza libre se sigue aceptando para la demo, pero paga 10× menos.
+problemId, answer, nonce)` y el oráculo sólo emite si el firmante recuperado es el beneficiario. Y
+como la prosa se genera gratis, la recompensa completa (`ORACLE_VERIFIED_MAX_COGN`) requiere resolver
+un problema con respuesta comprobable, y la traza tiene que usar los datos del enunciado y llegar a
+esa respuesta (una traza ajena con la respuesta pública pegada cobra 0); la traza libre se sigue
+aceptando para la demo, pero paga 10× menos. Límite conocido: el banco de problemas es fijo y
+público, así que en producción debe rotarse o generarse por usuario.
 
 Endpoints:
 

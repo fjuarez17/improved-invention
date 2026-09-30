@@ -20,18 +20,26 @@ os.environ.setdefault("ORACLE_COOLDOWN_SECONDS", "0")
 from app import main  # noqa: E402
 from app.auth import claim_payload, recover_claim_signer  # noqa: E402
 from app.pinning import deterministic_cid  # noqa: E402
-from app.problems import PROBLEMS, check_answer  # noqa: E402
+from app.problems import PROBLEMS, addresses_problem, check_answer  # noqa: E402
 
 USER = Account.from_key("0x" + "11" * 32)
 OTHER = Account.from_key("0x" + "22" * 32)
 
 GOOD_TRACE = """Analizo el problema de los trenes.
-1. El primer tren recorre 300 km en 3 horas, luego su velocidad media es 100 km/h.
-2. El segundo sale una hora después y necesita alcanzarlo en dos horas.
-3. En esas dos horas el primero avanza otros 200 km desde el punto de encuentro previo.
-4. Planteo la ecuación de posiciones iguales y despejo la velocidad desconocida.
-5. Compruebo el resultado sustituyendo los tiempos originales de cada convoy.
-Por lo tanto la velocidad buscada del segundo tren resulta ser de 120 kilómetros por hora."""
+1. Las ciudades están separadas por 300 km y los trenes avanzan uno hacia el otro.
+2. Sus velocidades se suman: 60 km/h + 90 km/h = 150 km/h de acercamiento.
+3. El tiempo hasta cruzarse es 300 / 150 = 2 horas.
+4. En esas 2 horas el tren lento, a 60 km/h, recorre 60 por 2 kilómetros.
+5. Compruebo: el rápido recorre 180 km y 120 + 180 = 300 km, cuadra.
+Por lo tanto el tren más lento recorre 120 kilómetros hasta el cruce."""
+
+UNRELATED_TRACE = """Calculo la derivada de f(x) = x^2 * ln(x).
+1. Aplico la regla del producto con u = x^2 y v = ln(x).
+2. La derivada de u es 2x y la derivada de v es 1/x.
+3. Sumo u'v + uv' y obtengo 2x ln(x) + x.
+4. Compruebo evaluando en x = 1, donde la pendiente vale 1.
+5. Reviso los signos y el dominio x > 0 de la función.
+Por lo tanto f'(x) = 2x ln(x) + x, y la respuesta pedida es 120."""
 
 
 def sign(account, reasoning, nonce, problem_id=None, answer=None):
@@ -234,6 +242,30 @@ def test_verified_answer_pays_more_than_free_form(client, chain):
     assert free["answerVerified"] is False
     assert verified["answerVerified"] is True
     assert verified["amount"] > free["amount"]
+
+
+def test_correct_answer_with_an_unrelated_trace_earns_nothing(client):
+    response = client.post(
+        "/evaluate",
+        json={
+            "user": USER.address,
+            "reasoning": UNRELATED_TRACE,
+            "problemId": "trains",
+            "answer": "120",
+            "nonce": 1,
+            "signature": sign(USER, UNRELATED_TRACE, 1, "trains", "120"),
+        },
+    )
+    assert response.json()["rewarded"] is False
+    assert response.json()["score"] == 0
+
+
+def test_trace_must_use_the_problem_data_and_reach_the_answer():
+    trains = PROBLEMS["trains"]
+    assert addresses_problem(trains, GOOD_TRACE)
+    assert not addresses_problem(trains, UNRELATED_TRACE)
+    assert not addresses_problem(trains, GOOD_TRACE.replace("120", "cien"))
+    assert addresses_problem(PROBLEMS["compound"], "1000 al 10% da 1.331,00 al final")
 
 
 def test_free_form_signature_cannot_be_upgraded_to_a_verified_claim(client, chain):
