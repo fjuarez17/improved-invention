@@ -12,4 +12,4 @@ web/dist
 oracle/node_modules
 oracle/.venv
 oracle/oracle-state.json
-oracle/app/__pycache__/
+__pycache__/
