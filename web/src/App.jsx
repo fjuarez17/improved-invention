@@ -183,11 +183,14 @@ export default function App() {
         }),
       });
       const data = await res.json();
-      if (res.status === 409) {
+      if (res.status === 409 && data.cid) {
         setResult({ ...data, reason: "Esta traza ya fue recompensada on-chain (CID duplicado): edita el razonamiento para generar uno nuevo." });
         return;
       }
-      if (!res.ok) throw new Error(data.error || "oracle error");
+      if (!res.ok) {
+        setError(`Oráculo: ${data.reason || data.error || `HTTP ${res.status}`}`);
+        return;
+      }
       setResult(data);
       await loadStats();
       await loadBalance(account);
