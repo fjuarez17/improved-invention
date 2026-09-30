@@ -51,6 +51,15 @@ export function extractTrace(prompt: string): {
 function findTrace(
   value: unknown,
 ): { problemContext: string; reasoningTrace: string } | null {
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text.startsWith("{") && !text.startsWith("[")) return null;
+    try {
+      return findTrace(JSON.parse(text) as unknown);
+    } catch {
+      return null;
+    }
+  }
   if (value === null || typeof value !== "object") return null;
   if (Array.isArray(value)) {
     for (const item of value) {
