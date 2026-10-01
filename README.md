@@ -1,12 +1,21 @@
 # CalchAI — $COGN (Proof of Reasoning) — MVP on Monad
 
-Smart contracts del token $COGN: hard cap de 1.000.000.000, emisión de recompensas controlada por el Oráculo de CalchAI con recibo criptográfico (CID de IPFS), y bóveda de vesting con TGE + cliff + liberación lineal.
+Smart contracts del token $COGN: hard cap de 1.000.000.000, emisión de recompensas controlada por el Oráculo de CalchAI con recibo criptográfico (CID pineado en IPFS cuando está configurado; fallback determinista en local), y bóveda de vesting con TGE + cliff + liberación lineal.
 
 - `contracts/CognitionToken.sol` — ERC-20 (Permit + Burnable, Ownable2Step). 600M se acuñan en el TGE; los 400M de Minería Cognitiva sólo puede emitirlos el oráculo.
 - `contracts/CognitionVesting.sol` — bóveda de vesting irrevocable por beneficiario (TGE %, cliff, lineal).
 - `scripts/tokenomics.js` — única fuente de verdad de la distribución y el calendario.
 - `scripts/deploy.js` — despliegue + configuración del oráculo + creación de los calendarios de vesting.
 - `scripts/mintReward.js` — ejemplo de lo que hace tu backend (Vertex AI) al validar un razonamiento.
+
+## Documentación para el equipo
+
+Empieza por [`docs/README.md`](./docs/README.md). Ahí están el onboarding, los
+flujos, el diseño criptoeconómico y el orden correcto para leer el proyecto.
+
+La documentación separa capacidades verificadas en Monad Testnet de funciones
+de roadmap. En particular, el acceso comercial pagado a datos, la quema por
+consumo y el staking de validadores todavía no son contratos desplegados.
 
 ## Setup
 
@@ -24,7 +33,10 @@ npx hardhat test
 | CognitionToken ($COGN) | [`0x3721E5c3162FEA106ddC42baBAcEF09664EF625F`](https://testnet.monadexplorer.com/address/0x3721E5c3162FEA106ddC42baBAcEF09664EF625F) |
 | CognitionVesting | [`0xe5b63EE0BF037a0535E7f13a406019b3b7D5DF9A`](https://testnet.monadexplorer.com/address/0xe5b63EE0BF037a0535E7f13a406019b3b7D5DF9A) |
 
-Recompensa cognitiva de demo (25 COGN con CID de IPFS como recibo): [`0x5e131454ac22c6913eebe89854f59d35dacedb31dde76b6552a3844851040f1f`](https://testnet.monadexplorer.com/tx/0x5e131454ac22c6913eebe89854f59d35dacedb31dde76b6552a3844851040f1f)
+Recompensa cognitiva histórica de demo: [`0x5e131454ac22c6913eebe89854f59d35dacedb31dde76b6552a3844851040f1f`](https://testnet.monadexplorer.com/tx/0x5e131454ac22c6913eebe89854f59d35dacedb31dde76b6552a3844851040f1f).
+Para nuevas reclamaciones, el backend informa explícitamente si el CID fue
+pineado en IPFS (`cidPinned: true`) o si usa el fallback determinista
+(`cidPinned: false`).
 
 ## Volver a desplegar
 
@@ -68,7 +80,8 @@ npm run web         # dApp en :5173
 Flujo de la demo ante los jueces: conectar MetaMask (la dApp añade Monad Testnet sola) → pegar un razonamiento → el oráculo lo puntúa, genera el CID y acuña $COGN → aparece el recibo con enlace al explorer, sube el contador de minería y el balance del usuario. Abajo, la tabla de vesting leída on-chain muestra que equipo e inversores siguen a 0% hasta su cliff.
 
 - `oracle/app/` — servicio backend (FastAPI) con la wallet del oráculo: verifica la firma EIP-712 del beneficiario, comprueba la respuesta del problema, puntúa la traza y pinea el CID. `score_reasoning()` es el punto de integración de Vertex AI; `pin_trace()` el del almacenamiento (Pinata / nodo IPFS).
-- `web/` — dApp React + ethers v6, sólo lectura salvo conectar wallet y reclamar vesting.
+- `web/` — dApp React + ethers v6: lectura on-chain, firma de reclamaciones,
+  recepción de recompensas y reclamación de vesting.
 
 ## Decisiones de diseño que los jueces van a mirar
 
