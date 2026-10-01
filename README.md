@@ -87,7 +87,11 @@ Flujo de la demo ante los jueces: conectar MetaMask (la dApp añade Monad Testne
 
 1. **Hard cap y cubeta de minería separada.** El contrato no sólo limita el suministro total a 1B: `totalMined` impide que la minería cognitiva supere nunca los 400M, incluso si alguien quema tokens (quemar no reabre espacio de emisión).
 2. **Emisión sólo por oráculo, con freno de mano.** Ni el owner puede acuñar recompensas. `maxRewardPerMint` limita el daño si la wallet del backend se ve comprometida, y el owner puede rotar el oráculo.
-3. **Recibo criptográfico por razonamiento.** Cada emisión lleva el CID de IPFS de la traza de razonamiento y se registra en `rewardedReasoning`, así que el mismo razonamiento no se puede cobrar dos veces y cualquiera puede auditar en Monad por qué se pagó.
+3. **Recibo criptográfico por razonamiento.** Cada emisión lleva el CID de la
+   traza de razonamiento y se registra en `rewardedReasoning`, así que el mismo
+   razonamiento no se puede cobrar dos veces y cualquiera puede auditar en
+   Monad por qué se pagó. El CID sólo es una referencia IPFS real cuando el
+   servicio tiene configurado Pinata o un gateway IPFS.
 4. **Vesting irrevocable.** Equipo (cliff 12m, lineal 48m) e inversores (cliff 6m, lineal 24m) no pueden desbloquear antes de tiempo: no hay función de rescate sobre tokens ya comprometidos.
 5. **Ownable2Step + ERC20Permit.** Evita perder el control por transferir ownership a una dirección errónea, y permite aprobaciones sin gas para la UX del estudiante.
 
