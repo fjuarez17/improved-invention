@@ -19,6 +19,8 @@ en Monad Testnet y lo que pertenece al diseño futuro.
    evidencia para el formulario.
 7. **[Guion de video](./VIDEO-SCRIPT.md)** — narración, escenas, fallas,
    preguntas y checklist de grabación.
+8. **[Despliegue público](./PUBLIC-DEPLOYMENT.md)** — hosting del oráculo,
+   IPFS real y checklist operativo previo a la demo.
 
 ## Mapa rápido
 

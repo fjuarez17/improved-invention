@@ -171,14 +171,34 @@ class Evaluation(BaseModel):
 
 @app.get("/health")
 def health():
-    account = oracle_account()
+    try:
+        account = oracle_account()
+    except RuntimeError:
+        account = None
+
+    try:
+        on_chain_oracle = token.functions.oracleAddress().call()
+        rpc_connected = True
+    except Exception:
+        on_chain_oracle = None
+        rpc_connected = False
+
+    gas_balance = None
+    if account is not None:
+        try:
+            gas_balance = float(w3.from_wei(w3.eth.get_balance(account.address), "ether"))
+        except Exception:
+            pass
+
     return {
-        "oracle": account.address,
-        "onChainOracle": token.functions.oracleAddress().call(),
+        "oracle": account.address if account is not None else None,
+        "oracleConfigured": account is not None,
+        "onChainOracle": on_chain_oracle,
+        "rpcConnected": rpc_connected,
         "token": TOKEN_ADDRESS,
         "vesting": VESTING_ADDRESS,
         "chainId": CHAIN_ID,
-        "gasBalanceMon": float(w3.from_wei(w3.eth.get_balance(account.address), "ether")),
+        "gasBalanceMon": gas_balance,
         "dailyBudgetCogn": DAILY_BUDGET_COGN,
         "spentTodayCogn": spent_today["amount"],
         "requireSignature": REQUIRE_SIGNATURE,
