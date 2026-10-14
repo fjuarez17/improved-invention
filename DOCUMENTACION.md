@@ -20,11 +20,14 @@ Tres actores, con poderes separados en el contrato:
 
 ```
 Usuario ──razonamiento──▶ dApp (React + ethers v6)
-                              │
-                              ▼  POST /evaluate
+                              │  POST /claim-payload → firma EIP-712 en la wallet (sin gas)
+                              ▼  POST /evaluate {razonamiento, respuesta, nonce, firma}
                    Oráculo (FastAPI, wallet dedicada)
-                     · puntúa la traza (0-100)
-                     · genera el CID del razonamiento
+                     · recupera el firmante y exige firmante == beneficiario
+                     · rechaza nonces ya usados (anti-replay, persistido)
+                     · verifica la respuesta del problema si se eligió uno y que la traza use sus datos
+                     · puntúa la traza (0-100) penalizando relleno repetido
+                     · pinea la traza en IPFS si hay credenciales; si no, CID determinista marcado como tal
                      · cooldown por wallet + presupuesto diario
                      · comprueba rewardedReasoning() antes de firmar
                               │
@@ -45,8 +48,11 @@ Componentes del repositorio:
 | `scripts/tokenomics.js` | Fuente única de verdad de la distribución y el calendario. |
 | `scripts/deploy.js` | Despliegue + configuración del oráculo + creación de calendarios. |
 | `scripts/transferOwnership.js` | Transferencia Ownable2Step del token y del vault. |
-| `oracle/server.js` | Oráculo de desarrollo (Node, puerto 8787). |
-| `oracle/app/main.py` | Oráculo de producción (FastAPI) con cooldown y presupuesto diario. |
+| `oracle/app/main.py` | Oráculo de producción (FastAPI): firma, verificación, puntuación y emisión. |
+| `oracle/app/auth.py` | Dominio EIP-712 `CalchAI Proof of Reasoning` y recuperación del firmante. |
+| `oracle/app/problems.py` | Problemas con respuesta comprobable objetivamente. |
+| `oracle/app/pinning.py` | Pinning real (Pinata o nodo IPFS) con fallback determinista explícito. |
+| `oracle/tests/` | Tests de firma, replay, verificación de respuesta, CID duplicado y topes. |
 | `web/` | dApp: dashboard, minería en vivo, vesting on-chain, enlaces al explorer. |
 
 ## 2.bis Publicar el oráculo (hosting)
@@ -112,7 +118,7 @@ Ambos contratos están verificados vía Sourcify en el explorer de Monad. Red: `
 ```bash
 npm install
 npx hardhat test          # 16 tests
-npm run oracle            # oráculo Node en :8787
+npm run oracle            # oráculo FastAPI en :8787
 npm run web               # dApp en :5173
 ```
 
@@ -124,7 +130,24 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 ORACLE_PRIVATE_KEY=0x... .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8787
 ```
 
-Variables: `ORACLE_PRIVATE_KEY` (obligatoria), `MONAD_RPC_URL`, `TOKEN_ADDRESS`, `VESTING_ADDRESS`, `ORACLE_COOLDOWN_SECONDS`, `ORACLE_DAILY_BUDGET`.
+Variables: `ORACLE_PRIVATE_KEY` (obligatoria), `MONAD_RPC_URL`, `TOKEN_ADDRESS`, `VESTING_ADDRESS`, `ORACLE_COOLDOWN_SECONDS`, `ORACLE_DAILY_BUDGET`, `ORACLE_REQUIRE_SIGNATURE` (por defecto `true`), `ORACLE_FREEFORM_MAX_COGN` (1), `ORACLE_VERIFIED_MAX_COGN` (10), `PINATA_JWT` o `IPFS_API_URL` (sin ellas el CID es un hash determinista y la respuesta lo marca con `cidPinned: false`).
+
+Tests del oráculo:
+
+```bash
+cd oracle && .venv/bin/python -m pytest tests -q
+```
+
+### Por qué la recompensa exige firma y respuesta correcta
+
+Sin firma, cualquiera podía pegar el razonamiento de otro y cobrarlo: el oráculo aceptaba la
+dirección que le pasara quien llamase. Ahora la wallet firma `ReasoningClaim(user, reasoningHash,
+problemId, answer, nonce)` y el oráculo sólo emite si el firmante recuperado es el beneficiario. Y
+como la prosa se genera gratis, la recompensa completa (`ORACLE_VERIFIED_MAX_COGN`) requiere resolver
+un problema con respuesta comprobable, y la traza tiene que usar los datos del enunciado y llegar a
+esa respuesta (una traza ajena con la respuesta pública pegada cobra 0); la traza libre se sigue
+aceptando para la demo, pero paga 10× menos. Límite conocido: el banco de problemas es fijo y
+público, así que en producción debe rotarse o generarse por usuario.
 
 Endpoints:
 

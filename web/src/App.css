@@ -164,6 +164,25 @@ textarea {
   margin-bottom: 12px;
 }
 
+.problem-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.problem-row select,
+.problem-row input {
+  flex: 1 1 220px;
+  min-width: 0;
+  background: #0c0c15;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+}
+
 .result {
   margin-top: 14px;
   padding: 14px;
