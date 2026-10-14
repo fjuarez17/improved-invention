@@ -11,3 +11,5 @@ web/node_modules
 web/dist
 oracle/node_modules
 oracle/.venv
+oracle/oracle-state.json
+oracle/app/__pycache__/

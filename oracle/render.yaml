@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: calchai-oracle
+    runtime: docker
+    rootDir: oracle
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ORACLE_PRIVATE_KEY
+        sync: false # set it in the Render dashboard; never commit it
+      - key: MONAD_RPC_URL
+        value: https://testnet-rpc.monad.xyz/
+      - key: TOKEN_ADDRESS
+        value: "0x3721E5c3162FEA106ddC42baBAcEF09664EF625F"
+      - key: VESTING_ADDRESS
+        value: "0xe5b63EE0BF037a0535E7f13a406019b3b7D5DF9A"
+      - key: ORACLE_COOLDOWN_SECONDS
+        value: "120"
+      - key: ORACLE_DAILY_BUDGET
+        value: "5000"

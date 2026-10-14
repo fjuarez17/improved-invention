@@ -49,6 +49,24 @@ Componentes del repositorio:
 | `oracle/app/main.py` | Oráculo de producción (FastAPI) con cooldown y presupuesto diario. |
 | `web/` | dApp: dashboard, minería en vivo, vesting on-chain, enlaces al explorer. |
 
+## 2.bis Publicar el oráculo (hosting)
+
+El oráculo se empaqueta con Docker y puede levantarse en cualquier PaaS. En Render basta con
+importar el repo y usar el blueprint `oracle/render.yaml` (plan free, health check en `/health`);
+en Fly.io o Railway se usa el mismo `oracle/Dockerfile`.
+
+```bash
+# local, idéntico al contenedor
+docker build -t calchai-oracle oracle
+docker run -p 8000:8000 -e ORACLE_PRIVATE_KEY=... calchai-oracle
+```
+
+`ORACLE_PRIVATE_KEY` se configura como secreto en el panel del proveedor: nunca se commitea.
+La wallet del oráculo necesita saldo MON para gas; `/health` lo expone en `gasBalanceMon`.
+
+La dApp publicada acepta `?oracle=https://<url-del-oraculo>` en la URL: guarda ese valor en
+`localStorage`, así que se puede repuntar el frontend sin reconstruirlo.
+
 ## 3. Respaldo del token (qué sostiene a $COGN)
 
 El respaldo no es una promesa: son cuatro capas verificables.
