@@ -15,6 +15,10 @@ en Monad Testnet y lo que pertenece al diseño futuro.
 4. **[Documentación técnica completa](../DOCUMENTACION.md)** — referencia
    operativa, controles y runbook de la demo.
 5. **[Tokenomics](../TOKENOMICS.md)** — distribución, hard cap y calendario.
+6. **[Corpus de entrega Monad](./MONAD-SUBMISSION.md)** — textos, links y
+   evidencia para el formulario.
+7. **[Guion de video](./VIDEO-SCRIPT.md)** — narración, escenas, fallas,
+   preguntas y checklist de grabación.
 
 ## Mapa rápido
 
