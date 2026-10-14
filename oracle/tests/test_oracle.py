@@ -120,6 +120,24 @@ def chain(monkeypatch):
     return functions
 
 
+def test_health_reports_missing_signer_without_failing(monkeypatch, client):
+    monkeypatch.delenv("ORACLE_PRIVATE_KEY", raising=False)
+
+    class Functions:
+        def oracleAddress(self):
+            return FakeCall(OTHER.address)
+
+    monkeypatch.setattr(main, "token", type("T", (), {"functions": Functions()})())
+
+    response = client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["oracleConfigured"] is False
+    assert body["oracle"] is None
+    assert body["onChainOracle"] == OTHER.address
+    assert body["rpcConnected"] is True
+
+
 def test_signature_roundtrip_recovers_the_signer():
     nonce = 1
     signature = sign(USER, GOOD_TRACE, nonce)
