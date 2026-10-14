@@ -178,16 +178,17 @@ def health():
 
     try:
         on_chain_oracle = token.functions.oracleAddress().call()
-        gas_balance = (
-            float(w3.from_wei(w3.eth.get_balance(account.address), "ether"))
-            if account is not None
-            else None
-        )
         rpc_connected = True
     except Exception:
         on_chain_oracle = None
-        gas_balance = None
         rpc_connected = False
+
+    gas_balance = None
+    if account is not None:
+        try:
+            gas_balance = float(w3.from_wei(w3.eth.get_balance(account.address), "ether"))
+        except Exception:
+            pass
 
     return {
         "oracle": account.address if account is not None else None,
